@@ -30,11 +30,11 @@ const RecycleBin = () => {
   useEffect(() => {
     const fetchDeletedDocuments = async () => {
       setIsLoading(true);
-      const documents = await getDeletedDocuments();
+      const documents = await getDeletedDocuments(); // Fetch the deleted documents
 
       const formattedDocuments: Document[] = documents.map((doc) => ({
         id: doc.id,
-        title: doc.title || "Untitled Document",
+        title: doc.title || "Untitled Document", // Ensure title exists or provide a fallback
       }));
 
       setDeletedDocuments(formattedDocuments);
@@ -82,21 +82,23 @@ const RecycleBin = () => {
           <DialogTitle>Recycle Bin</DialogTitle>
         </DialogHeader>
 
+        <hr className="my-2" />
+
         {isLoading ? (
           <p>Loading...</p>
         ) : deletedDocuments.length === 0 ? (
           <p>No documents in the Recycle Bin.</p>
         ) : (
-          <ul className="space-y-4 mt-4">
+          <ul>
             {deletedDocuments.map((doc) => (
               <li
                 key={doc.id}
-                className="flex justify-between items-center p-4 bg-gray-100 rounded-md"
+                className="flex justify-between items-center p-4 rounded-md"
               >
                 <span>{doc.title}</span>
                 <div className="space-x-2">
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     onClick={() => handleRestore(doc.id)}
                     disabled={isPending}
                   >

@@ -13,6 +13,7 @@ export async function createNewDocument() {
   const doCollectionRef = adminDb.collection("documents");
   const docRef = await doCollectionRef.add({
     title: "New Doc",
+    isDeleted: false,
   });
 
   await adminDb
@@ -38,6 +39,7 @@ export async function createNewDocumentWithTitle(title: string) {
   const doCollectionRef = adminDb.collection("documents");
   const docRef = await doCollectionRef.add({
     title: title || "New Doc",
+    isDeleted: false,
   });
 
   await adminDb
@@ -153,21 +155,40 @@ export async function getDeletedDocuments() {
   auth().protect();
 
   try {
+    const { sessionClaims } = await auth(); // Lấy thông tin người dùng
+
+    // Truy vấn các tài liệu đã xóa
     const deletedDocsSnapshot = await adminDb
       .collection("documents")
-      .where("isDeleted", "==", true) // assuming a field "isDeleted" marks documents in Recycle Bin
+      .where("isDeleted", "==", true) // Lấy các tài liệu đã xóa
       .get();
 
-    const deletedDocuments = deletedDocsSnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        title: data.title || "Untitled Document", // Ensure title exists or provide a fallback
-        ...data,
-      };
-    });
+    // Lọc các tài liệu mà người dùng sở hữu
+    const deletedDocuments = await Promise.all(
+      deletedDocsSnapshot.docs.map(async (doc) => {
+        const data = doc.data();
 
-    return deletedDocuments;
+        // Kiểm tra xem người dùng có phải là owner của tài liệu không
+        const userRoomRef = await adminDb
+          .collection("users")
+          .doc(sessionClaims!.email)
+          .collection("rooms")
+          .doc(doc.id)
+          .get();
+
+        if (userRoomRef.exists && userRoomRef.data()?.role === "owner") {
+          return {
+            id: doc.id,
+            title: data.title || "Untitled Document", // Đảm bảo tiêu đề tồn tại hoặc cung cấp giá trị mặc định
+            ...data,
+          };
+        }
+        return null; // Nếu không phải là owner thì trả về null
+      })
+    );
+
+    // Lọc các tài liệu không phải là null
+    return deletedDocuments.filter((doc) => doc !== null);
   } catch (error) {
     console.error("Error retrieving deleted documents:", error);
     return [];
@@ -220,10 +241,23 @@ export async function restoreDocument(documentId: string) {
 
 export async function moveDocumentToRecycleBin(documentId: string) {
   try {
+    // Lấy email của người dùng từ sessionClaims
+    const { sessionClaims } = await auth();
+
+    // Cập nhật trường isDeleted trong collection documents
     await adminDb.collection("documents").doc(documentId).update({
-      isDeleted: true, // Mark the document as deleted
-      // Add any other fields you need to manage access control
+      isDeleted: true,
     });
+
+    // Cập nhật trường isDeleted trong collection rooms
+    await adminDb
+      .collection("users")
+      .doc(sessionClaims?.email!)
+      .collection("rooms")
+      .doc(documentId)
+      .update({
+        isDeleted: true,
+      });
 
     return { success: true };
   } catch (error) {

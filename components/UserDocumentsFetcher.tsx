@@ -87,7 +87,7 @@ export interface RoomDocument extends DocumentData {
   role: "owner" | "editor";
   roomId: string;
   userId: string;
-  isDeleted?: boolean; // Add a flag for deleted documents
+  isDeleted?: boolean; // Đánh dấu tài liệu đã bị xóa
 }
 
 interface UserDocumentsFetcherProps {
@@ -123,12 +123,15 @@ const UserDocumentsFetcher: React.FC<UserDocumentsFetcherProps> = ({
         const roomData = curr.data() as RoomDocument;
 
         if (roomData.isDeleted) {
-          // If the document is marked as deleted, add it to recycleBin
+          // Nếu tài liệu được đánh dấu là đã xóa, thêm vào recycleBin
           acc.recycleBin.push(roomData);
-        } else if (roomData.role === "owner") {
-          acc.owner.push(roomData);
         } else {
-          acc.editor.push(roomData);
+          // Chỉ thêm tài liệu có isDeleted là false
+          if (roomData.role === "owner") {
+            acc.owner.push(roomData);
+          } else if (roomData.role === "editor") {
+            acc.editor.push(roomData);
+          }
         }
 
         return acc;
@@ -136,7 +139,7 @@ const UserDocumentsFetcher: React.FC<UserDocumentsFetcherProps> = ({
       {
         owner: [],
         editor: [],
-        recycleBin: [], // Initialize recycleBin
+        recycleBin: [], // Khởi tạo recycleBin
       }
     );
 
@@ -146,7 +149,7 @@ const UserDocumentsFetcher: React.FC<UserDocumentsFetcherProps> = ({
   if (loading) return <p>Loading documents...</p>;
   if (error) return <p>Error loading documents: {error.message}</p>;
 
-  return null; // Component doesn't need to render content, only fetch data
+  return null; // Component không cần render nội dung, chỉ fetch dữ liệu
 };
 
 export default UserDocumentsFetcher;
